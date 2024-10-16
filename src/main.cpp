@@ -4,27 +4,29 @@
 // REPLACE WITH YOUR RECEIVER MAC Address
 uint8_t broadcastAddress[] = {0x30, 0x83, 0x98, 0xee, 0x4e, 0x38};
 int button_pin = 14;
+int component1State_pin = 2;
+volatile bool deliveryStatus = false;
 
 // Structure example to send data
 // Must match the receiver structure
 typedef struct struct_message {
-  char message[32];
   int button_state;
 } struct_message;
 
 // Create a struct_message called myData
 struct_message myData;
-
 esp_now_peer_info_t peerInfo;
 
 // callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   Serial.print("\r\nLast Packet Send Status:\t");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+  deliveryStatus = status;
 }
  
 void setup() {
   pinMode(button_pin,INPUT);
+  pinMode(component1State_pin,OUTPUT);
 
   // Init Serial Monitor
   Serial.begin(115200);
@@ -52,23 +54,27 @@ void setup() {
     Serial.println("Failed to add peer");
     return;
   }
+
 }
  
 void loop() {
   // Set values to send
-  strcpy(myData.message, "Hello From Sender");
   myData.button_state = digitalRead(button_pin);
   
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
-   
-  if (result == ESP_OK) {
-    Serial.println("Sent with success");
+
+  // Serial.println(result == ESP_OK ? "The sending protocall is successfull" : "Sending failed");
+  if (deliveryStatus == ESP_NOW_SEND_SUCCESS) {
+    Serial.println("packet received");
+    digitalWrite(component1State_pin,HIGH);
+  } else {
+    Serial.println("packet not received");
+    digitalWrite(component1State_pin,LOW);
   }
-  else {
-    Serial.println("Error sending the data");
-  }
+
   Serial.print("Data transmitted button state:");
   Serial.println(myData.button_state);
-  delay(200);
+
+  delay(100);
 }
